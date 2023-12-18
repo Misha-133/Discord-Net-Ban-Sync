@@ -2,45 +2,32 @@
 
 namespace Discord.Net.BanSync.Services;
 
-public class DiscordBotService : IHostedService
+public class DiscordBotService(DiscordSocketClient client, InteractionService interactions, IConfiguration config, ILogger<DiscordBotService> logger, InteractionHandler interactionHandler) : IHostedService
 {
-    private readonly DiscordSocketClient _client;
-    private readonly InteractionService _interactions;
-    private readonly IConfiguration _config;
-    private readonly ILogger _logger;
-    private readonly InteractionHandler _interactionHandler;
-
-    public DiscordBotService(DiscordSocketClient client, InteractionService interactions, IConfiguration config, ILogger<DiscordBotService> logger, InteractionHandler interactionHandler)
-    {
-        _client = client;
-        _interactions = interactions;
-        _config = config;
-        _logger = logger;
-        _interactionHandler = interactionHandler;
-    }
+    private readonly ILogger _logger = logger;
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        _client.Ready += ClientReady;
-        _client.UserBanned += _client_UserBanned;
+        client.Ready += ClientReady;
+        client.UserBanned += OnClientUserBanned;
 
-        _client.Log += LogAsync;
-        _interactions.Log += LogAsync;
+        client.Log += LogAsync;
+        interactions.Log += LogAsync;
 
-        await _interactionHandler.InitializeAsync();
+        await interactionHandler.InitializeAsync();
 
-        await _client.LoginAsync(TokenType.Bot, _config["Secrets:Discord"]);
+        await client.LoginAsync(TokenType.Bot, config["Secrets:Discord"]);
 
-        await _client.StartAsync();
+        await client.StartAsync();
     }
 
-    private async Task _client_UserBanned(SocketUser user, SocketGuild guild)
+    private async Task OnClientUserBanned(SocketUser user, SocketGuild guild)
     {
         if (guild.Id == 81384788765712384)
         {
             _ = Task.Run(async () =>
             {
-                foreach (var g in _client.Guilds)
+                foreach (var g in client.Guilds)
                 {
                     if (g.Id == guild.Id)
                         continue;
@@ -54,14 +41,14 @@ public class DiscordBotService : IHostedService
 
     public async Task StopAsync(CancellationToken cancellationToken)
     {
-        await _client.StopAsync();
+        await client.StopAsync();
     }
 
     private async Task ClientReady()
     {
-        _logger.LogInformation($"Logged as {_client.CurrentUser}");
+        _logger.LogInformation($"Logged as {client.CurrentUser}");
 
-        await _interactions.RegisterCommandsGloballyAsync();
+        await interactions.RegisterCommandsGloballyAsync();
     }
 
     public async Task LogAsync(LogMessage msg)
