@@ -15,7 +15,7 @@ var builder = new HostBuilder();
 
 builder.ConfigureAppConfiguration(options
     => options.AddJsonFile("appsettings.json")
-        .AddEnvironmentVariables());
+        .AddEnvironmentVariables("DNET_"));
 
 var loggerConfig = new LoggerConfiguration()
     .WriteTo.Console()
