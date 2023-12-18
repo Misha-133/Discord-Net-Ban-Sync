@@ -33,7 +33,7 @@ public class DiscordBotService(DiscordSocketClient client, InteractionService in
                         continue;
 
                     await g.AddBanAsync(user.Id, 7, "Synced ban with DApi.");
-                    _logger.LogInformation("Synced ban with DApi. User: {user} ({id}); Guild: {guild}", user.ToString(), user.Id, g.Name);
+                    _logger.LogInformation("Synced ban with DApi. User: {user} ({id}); Guild: {guild}", user.ToString(), user.Id, );
                 }
             });
         }
@@ -49,7 +49,7 @@ public class DiscordBotService(DiscordSocketClient client, InteractionService in
         _logger.LogInformation($"Logged as {client.CurrentUser}");
 
         await interactions.RegisterCommandsGloballyAsync();
-        await client.SetStatusAsync(UserStatus.Offline);
+        await client.SetStatusAsync(UserStatus.Invisible);
     }
 
     public async Task LogAsync(LogMessage msg)
