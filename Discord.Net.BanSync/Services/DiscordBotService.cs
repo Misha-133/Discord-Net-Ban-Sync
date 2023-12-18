@@ -33,7 +33,7 @@ public class DiscordBotService(DiscordSocketClient client, InteractionService in
                         continue;
 
                     await g.AddBanAsync(user.Id, 7, "Synced ban with DApi.");
-                    _logger.LogInformation("Synced ban with DApi. User: {user} ({id}); Guild: {guild}", user.ToString(), user.Id, );
+                    _logger.LogInformation("Synced ban with DApi. User: {user} ({id}); Guild: {guild}", user.ToString(), user.Id, g.Name);
                 }
             });
         }
