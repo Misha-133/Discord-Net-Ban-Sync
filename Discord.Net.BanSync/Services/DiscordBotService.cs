@@ -22,6 +22,7 @@ public class DiscordBotService : IHostedService
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         _client.Ready += ClientReady;
+        _client.UserBanned += _client_UserBanned;
 
         _client.Log += LogAsync;
         _interactions.Log += LogAsync;
@@ -31,6 +32,24 @@ public class DiscordBotService : IHostedService
         await _client.LoginAsync(TokenType.Bot, _config["Secrets:Discord"]);
 
         await _client.StartAsync();
+    }
+
+    private async Task _client_UserBanned(SocketUser user, SocketGuild guild)
+    {
+        if (guild.Id == 81384788765712384)
+        {
+            _ = Task.Run(async () =>
+            {
+                foreach (var g in _client.Guilds)
+                {
+                    if (g.Id == guild.Id)
+                        continue;
+
+                    await g.AddBanAsync(user.Id, 7, "Synced ban with DApi.");
+                    _logger.LogInformation("Synced ban with DApi. User: {user} ({id})", user.ToString(), user.Id);
+                }
+            });
+        }
     }
 
     public async Task StopAsync(CancellationToken cancellationToken)
