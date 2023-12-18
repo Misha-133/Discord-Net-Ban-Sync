@@ -1,6 +1,6 @@
 using System.Reflection;
 
-namespace DiscordNetTemplate.Services;
+namespace Discord.Net.BanSync.Services;
 
 public class InteractionHandler
 {

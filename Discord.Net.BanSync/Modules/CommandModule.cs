@@ -1,4 +1,4 @@
-﻿namespace DiscordNetTemplate.Modules;
+﻿namespace Discord.Net.BanSync.Modules;
 
 public class CommandModule : InteractionModuleBase<SocketInteractionContext>
 {

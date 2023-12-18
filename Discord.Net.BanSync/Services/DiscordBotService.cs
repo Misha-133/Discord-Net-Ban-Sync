@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Hosting;
 
-namespace DiscordNetTemplate.Services;
+namespace Discord.Net.BanSync.Services;
 
 public class DiscordBotService : IHostedService
 {

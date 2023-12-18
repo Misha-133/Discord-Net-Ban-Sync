@@ -4,7 +4,7 @@ global using Discord.WebSocket;
 
 global using Microsoft.Extensions.Configuration;
 global using Microsoft.Extensions.Logging;
-using DiscordNetTemplate.Services;
+using Discord.Net.BanSync.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -29,9 +29,9 @@ builder.ConfigureServices((host, services) =>
     services.AddSingleton(new DiscordSocketClient(
         new DiscordSocketConfig
         {
-            GatewayIntents = GatewayIntents.All,
+            GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildBans,
             FormatUsersInBidirectionalUnicode = false,
-            AlwaysDownloadUsers = true,
+            AlwaysDownloadUsers = false,
             LogGatewayIntentWarnings = false,
             LogLevel = LogSeverity.Info
         }));
