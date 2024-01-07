@@ -27,26 +27,26 @@ public class DiscordBotService(DiscordSocketClient client, InteractionService in
         await client.StartAsync();
     }
 
-	private Task Client_AuditLogCreated(SocketAuditLogEntry entry, SocketGuild guild)
-	{
-		if (guild.Id == 81384788765712384)
+    private Task Client_AuditLogCreated(SocketAuditLogEntry entry, SocketGuild guild)
+    {
+        if (guild.Id != 81384788765712384)
+            return Task.CompletedTask;
+        if (entry.Data is not SocketBanAuditLogData data)
+            return Task.CompletedTask;
+
+        _ = Task.Run(async () =>
         {
-            _ = Task.Run(async () =>
+            foreach (var g in client.Guilds)
             {
-                foreach (var g in client.Guilds)
-                {
-                    if (g.Id == guild.Id)
-                        continue;
+                if (g.Id == guild.Id)
+                    continue;
 
-					var data = (SocketBanAuditLogData)entry.Data;
+                var reason = $"Synced ban with DApi. | {entry.Reason}";
 
-					var reason = $"Synced ban with DApi. | {entry.Reason}";
-
-                    await g.AddBanAsync(data.Target.Id, 7, reason);
-                    _logger.LogInformation("Synced ban with DApi. User: {User} ({Id}); Guild: {Guild}", data.Target.Value?.ToString() ?? "Not cached", data.Target.Id, g.Name);
-                }
-            });
-        }
+                await g.AddBanAsync(data.Target.Id, 7, reason);
+                _logger.LogInformation("Synced ban with DApi. User: {User} ({Id}); Guild: {Guild}", data.Target.Value?.ToString() ?? "Not cached", data.Target.Id, g.Name);
+            }
+        });
 
         return Task.CompletedTask;
 
