@@ -43,8 +43,10 @@ public class DiscordBotService(DiscordSocketClient client, InteractionService in
 
                 var reason = $"Synced ban with DApi. | {entry.Reason}";
 
+				var user = data.Target.Value?.ToString() ?? (await client.GetUserAsync(data.Target.Id))?.ToString() ?? "Not cached";
+
                 await g.AddBanAsync(data.Target.Id, 7, reason);
-                _logger.LogInformation("Synced ban with DApi. User: {User} ({Id}); Guild: {Guild}", data.Target.Value?.ToString() ?? "Not cached", data.Target.Id, g.Name);
+                _logger.LogInformation("Synced ban with DApi. User: {User} ({Id}); Guild: {Guild}", user, data.Target.Id, g.Name);
             }
         });
 
