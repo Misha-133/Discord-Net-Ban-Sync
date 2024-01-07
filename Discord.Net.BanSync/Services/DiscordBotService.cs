@@ -1,4 +1,6 @@
-﻿using Microsoft.Extensions.Hosting;
+﻿using System.Collections.Concurrent;
+
+using Microsoft.Extensions.Hosting;
 
 namespace Discord.Net.BanSync.Services;
 
@@ -6,10 +8,14 @@ public class DiscordBotService(DiscordSocketClient client, InteractionService in
 {
     private readonly ILogger _logger = logger;
 
+    public static ConcurrentQueue<BanRequest> BanQueue = new();
+    public ConcurrentDictionary<ulong, ConcurrentBag<(ulong, string?)>> BansPerGuild = new();
+
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         client.Ready += ClientReady;
-        client.UserBanned += OnClientUserBanned;
+        //client.UserBanned += OnClientUserBanned;
+        client.AuditLogCreated += Client_AuditLogCreated;
 
         client.Log += LogAsync;
         interactions.Log += LogAsync;
@@ -21,9 +27,9 @@ public class DiscordBotService(DiscordSocketClient client, InteractionService in
         await client.StartAsync();
     }
 
-    private async Task OnClientUserBanned(SocketUser user, SocketGuild guild)
-    {
-        if (guild.Id == 81384788765712384)
+	private Task Client_AuditLogCreated(SocketAuditLogEntry entry, SocketGuild guild)
+	{
+		if (guild.Id == 81384788765712384)
         {
             _ = Task.Run(async () =>
             {
@@ -32,12 +38,39 @@ public class DiscordBotService(DiscordSocketClient client, InteractionService in
                     if (g.Id == guild.Id)
                         continue;
 
-                    await g.AddBanAsync(user.Id, 7, "Synced ban with DApi.");
-                    _logger.LogInformation("Synced ban with DApi. User: {user} ({id}); Guild: {guild}", user.ToString(), user.Id, g.Name);
+					var data = (SocketBanAuditLogData)entry.Data;
+
+					var reason = $"Synced ban with DApi. | {entry.Reason}";
+
+                    await g.AddBanAsync(data.Target.Id, 7, reason);
+                    _logger.LogInformation("Synced ban with DApi. User: {User} ({Id}); Guild: {Guild}", data.Target.Value?.ToString() ?? "Not cached", data.Target.Id, g.Name);
                 }
             });
         }
+
+        return Task.CompletedTask;
+
     }
+
+    //private Task OnClientUserBanned(SocketUser user, SocketGuild guild)
+    //{
+    //    if (guild.Id == 81384788765712384)
+    //    {
+    //        _ = Task.Run(async () =>
+    //        {
+    //            foreach (var g in client.Guilds)
+    //            {
+    //                if (g.Id == guild.Id)
+    //                    continue;
+
+    //                await g.AddBanAsync(user.Id, 7, "Synced ban with DApi.");
+    //                _logger.LogInformation("Synced ban with DApi. User: {User} ({Id}); Guild: {Guild}", user.ToString(), user.Id, g.Name);
+    //            }
+    //        });
+    //    }
+
+    //    return Task.CompletedTask;
+    //}
 
     public async Task StopAsync(CancellationToken cancellationToken)
     {
@@ -46,13 +79,13 @@ public class DiscordBotService(DiscordSocketClient client, InteractionService in
 
     private async Task ClientReady()
     {
-        _logger.LogInformation($"Logged as {client.CurrentUser}");
+        _logger.LogInformation("Logged as {Bot}", client.CurrentUser);
 
         await interactions.RegisterCommandsGloballyAsync();
         await client.SetStatusAsync(UserStatus.Invisible);
     }
 
-    public async Task LogAsync(LogMessage msg)
+    public Task LogAsync(LogMessage msg)
     {
         var severity = msg.Severity switch
         {
@@ -67,6 +100,13 @@ public class DiscordBotService(DiscordSocketClient client, InteractionService in
 
         _logger.Log(severity, msg.Exception, msg.Message);
 
-        await Task.CompletedTask;
+        return Task.CompletedTask;
     }
+}
+
+public struct BanRequest(ulong userId, ulong guildId, string reason)
+{
+    public ulong UserId { get; set; } = userId;
+    public ulong GuildId { get; set; } = guildId;
+    public string Reason { get; set; } = reason;
 }
