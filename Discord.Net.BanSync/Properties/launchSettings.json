@@ -1,10 +1,18 @@
 {
   "profiles": {
     "Discord.Net.BanSync": {
-      "commandName": "Project"
+      "commandName": "Project",
+      "environmentVariables": {
+        "DNET_Secrets__Discord": "bot token",
+        "DNET_ConnectionStrings__BanSync": "mysql connection string"
+      }
     },
     "Container (Dockerfile)": {
-      "commandName": "Docker"
+      "commandName": "Docker",
+      "environmentVariables": {
+        "DNET_Secrets__Discord": "bot token",
+        "DNET_ConnectionStrings__BanSync": "mysql connection string"
+      }
     }
   }
 }
