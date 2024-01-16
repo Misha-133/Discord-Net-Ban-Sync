@@ -1,5 +1,103 @@
-﻿namespace Discord.Net.BanSync.Modules;
+﻿using BanSync.Database;
+using BanSync.Services;
+using BanSync.Utils;
+using Microsoft.EntityFrameworkCore;
 
-public class CommandModule(ILogger<CommandModule> logger) : InteractionModuleBase<SocketInteractionContext>
-{ 
+namespace BanSync.Modules;
+
+[DefaultMemberPermissions(GuildPermission.Administrator)]
+public class CommandModule(ILogger<CommandModule> logger, IDbContextFactory<AppDbContext> dbContextFactory, BanSyncState syncState) : InteractionModuleBase<SocketInteractionContext>
+{
+	private AppDbContext db;
+
+	public override async Task BeforeExecuteAsync(ICommandInfo command)
+	{
+		db = await dbContextFactory.CreateDbContextAsync();
+
+		await base.BeforeExecuteAsync(command);
+	}
+
+	[SlashCommand("ban-enabled", "Sets whether bans will be synced with this guild")]
+	public async Task BanEnabledAsync([Summary("is-enabled")] bool isEnabled)
+	{
+		await DeferAsync();
+		var settings = await GuildSettingsUtils.GetGuildSettingsAsync(db, Context.Guild.Id);
+
+		settings.IsBanSyncEnabled = isEnabled;
+		await db.SaveChangesAsync();
+
+		await FollowupAsync(embed: new EmbedBuilder()
+			.WithColor(isEnabled ? 0xff00U : 0xff0000U)
+			.WithDescription($"Ban sync in this guild is now `{(isEnabled ? "enabled" : "disabled")}`")
+			.Build());
+	}
+
+	[SlashCommand("notifications", "Sets the channel to post notifications to")]
+	public async Task SetNotificationsChannelAsync([Summary("channel", "Sets the channel to post notifications to. Leave empty to disable"),
+													ChannelTypes(ChannelType.Text, ChannelType.News)] IGuildChannel? channel = null)
+	{
+		await DeferAsync();
+		var settings = await GuildSettingsUtils.GetGuildSettingsAsync(db, Context.Guild.Id);
+
+		settings.NotificationsChannelId = channel?.Id;
+		await db.SaveChangesAsync();
+
+		if (channel is not null)
+			await FollowupAsync(embed: new EmbedBuilder()
+			.WithColor(0xff00U)
+			.WithDescription($"Ban sync notifications channel is now set to <#{channel.Id}>")
+			.Build());
+		else
+			await FollowupAsync(embed: new EmbedBuilder()
+				.WithColor(0xff00U)
+				.WithDescription($"Ban sync notifications channel is now disabled")
+				.Build());
+	}
+
+	[SlashCommand("get-settings", "get settings for this guild")]
+	public async Task GetGuildSettingsAsync()
+	{
+		await DeferAsync();
+		var settings = await GuildSettingsUtils.GetGuildSettingsAsync(db, Context.Guild.Id);
+
+		await FollowupAsync(embed: new EmbedBuilder()
+					.WithColor(0xff00U)
+					.AddField("Ban Sync", settings.IsBanSyncEnabled ? "`Enabled`" : "`Disabled`", true)
+					.AddField("Notifications Channel", settings.NotificationsChannelId is null ? "`Disabled`" : $"<#{settings.NotificationsChannelId}>", true)
+					.Build());
+	}
+
+	[RequireBotPermission(GuildPermission.BanMembers)]
+	[RequireUserPermission(GuildPermission.BanMembers)]
+	[ComponentInteraction($"sync_ban_*_*")]
+	public async Task SyncBanAsync(ulong id, ulong guildId)
+	{
+		var interaction = (IComponentInteraction)Context.Interaction;
+		await interaction.UpdateAsync(x => x.Components = null);
+
+		var source = Context.Client.GetGuild(guildId);
+		var reason = $"Synced ban with {source.Name}";
+
+		if (interaction.Message.Embeds.Count is not 0)
+		{
+			var r = interaction.Message.Embeds.First().Fields.First(x => x.Name == "Reason");
+			reason += $" | {r.Value}";
+		}
+
+		try
+		{
+			syncState.History.Enqueue((Context.Guild.Id, id));
+			if (syncState.History.Count > 500)
+				syncState.History.TryDequeue(out _);
+
+			await Context.Guild.AddBanAsync(id, 0, reason.Length > 512 ? reason[..512] : reason);
+
+			await FollowupAsync("User banned.", ephemeral: true);
+		}
+		catch (Exception ex)
+		{
+			await FollowupAsync("Failed to ban this user.", ephemeral: true);
+			//logger.LogError(ex, "Failed to ban user {Id}", id);
+		}
+	}
 }

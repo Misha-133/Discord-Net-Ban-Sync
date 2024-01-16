@@ -1,6 +1,6 @@
 using System.Reflection;
 
-namespace Discord.Net.BanSync.Services;
+namespace BanSync.Services;
 
 public class InteractionHandler
 {
@@ -54,7 +54,10 @@ public class InteractionHandler
         switch (result.Error)
         {
             case InteractionCommandError.UnmetPrecondition:
-                _logger.LogInformation($"Unmet precondition - {result.Error}");
+                {
+                    await interaction.RespondAsync("You or the bot doesn't have permission to ban members");
+                    return;
+                }
                 break;
 
             case InteractionCommandError.BadArgs:

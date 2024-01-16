@@ -4,7 +4,10 @@ global using Discord.WebSocket;
 
 global using Microsoft.Extensions.Configuration;
 global using Microsoft.Extensions.Logging;
-using Discord.Net.BanSync.Services;
+using BanSync.Database;
+using BanSync.Services;
+using BanSync.Utils;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -14,17 +17,24 @@ using Serilog;
 var builder = new HostBuilder();
 
 builder.ConfigureAppConfiguration(options
-    => options.AddJsonFile("appsettings.json")
+    => options.AddJsonFile("appsettings.json", true)
         .AddEnvironmentVariables("DNET_"));
 
 var loggerConfig = new LoggerConfiguration()
     .WriteTo.Console()
     .WriteTo.File($"logs/log-{DateTime.Now:yy.MM.dd_HH.mm}.log")
+	.MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", Serilog.Events.LogEventLevel.Warning)
     .CreateLogger();
 
 builder.ConfigureServices((host, services) =>
 {
-    services.AddLogging(options => options.AddSerilog(loggerConfig, dispose: true));
+    services.AddLogging(options => options
+		.AddSerilog(loggerConfig, dispose: true));
+
+	services.AddDbContextFactory<AppDbContext>(x => 
+		x.UseMySql(host.Configuration.GetConnectionString("BanSync"), 
+			ServerVersion.AutoDetect(host.Configuration.GetConnectionString("BanSync")),
+			options => options.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null)));
 
     services.AddSingleton(new DiscordSocketClient(
         new DiscordSocketConfig
@@ -42,8 +52,10 @@ builder.ConfigureServices((host, services) =>
     }));
 
     services.AddSingleton<InteractionHandler>();
+	services.AddSingleton<BanSyncState>();
 
     services.AddHostedService<DiscordBotService>();
+	services.AddHostedService<BanSyncService>();
 });
 
 var app = builder.Build();
