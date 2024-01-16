@@ -134,7 +134,7 @@ public class BanSyncService : BackgroundService
 						.WithButton("Ban", $"sync_ban_{ban.UserId}_{ban.SourceGuildId}", ButtonStyle.Danger, Emote.Parse("<:banhammer:513640748801982496>"))
 						.Build();
 
-					await channel.SendMessageAsync(embed: embed, components: components);
+					await channel.SendMessageAsync(embed: embed, components: settings.IsBanSyncEnabled ? null : components);
 				}
 			}
 			catch (Exception e)
