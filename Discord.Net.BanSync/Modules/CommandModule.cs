@@ -87,7 +87,8 @@ public class CommandModule(ILogger<CommandModule> logger, IDbContextFactory<AppD
 		await FollowupAsync(embed: new EmbedBuilder()
 					.WithColor(0xff00U)
 					.AddField("Ban Sync", settings.IsBanSyncEnabled ? "`Enabled`" : "`Disabled`", true)
-					.AddField("Notifications Channel", settings.NotificationsChannelId is null ? "`Disabled`" : $"<#{settings.NotificationsChannelId}>", true)
+					.AddField("Ban Notifications Channel", settings.NotificationsChannelId is null ? "`Disabled`" : $"<#{settings.NotificationsChannelId}>", true)
+					.AddField("Unban Notifications Channel", settings.UnbanNotificationsChannelId is null ? "`Disabled`" : $"<#{settings.UnbanNotificationsChannelId}>")
 					.Build());
 	}
 
