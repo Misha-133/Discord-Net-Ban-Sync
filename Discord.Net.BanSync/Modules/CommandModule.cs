@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 namespace BanSync.Modules;
 
 [DefaultMemberPermissions(GuildPermission.Administrator)]
+[Group("settings", "Settings command")]
 public class CommandModule(ILogger<CommandModule> logger, IDbContextFactory<AppDbContext> dbContextFactory, BanSyncState syncState) : InteractionModuleBase<SocketInteractionContext>
 {
 	private AppDbContext db;
@@ -32,8 +33,8 @@ public class CommandModule(ILogger<CommandModule> logger, IDbContextFactory<AppD
 			.Build());
 	}
 
-	[SlashCommand("notifications", "Sets the channel to post notifications to")]
-	public async Task SetNotificationsChannelAsync([Summary("channel", "Sets the channel to post notifications to. Leave empty to disable"),
+	[SlashCommand("ban-notifications", "Sets the channel to post notifications to")]
+	public async Task SetBanNotificationsChannelAsync([Summary("channel", "Sets the channel to post notifications to. Leave empty to disable"),
 													ChannelTypes(ChannelType.Text, ChannelType.News)] IGuildChannel? channel = null)
 	{
 		await DeferAsync();
@@ -50,11 +51,33 @@ public class CommandModule(ILogger<CommandModule> logger, IDbContextFactory<AppD
 		else
 			await FollowupAsync(embed: new EmbedBuilder()
 				.WithColor(0xff00U)
-				.WithDescription($"Ban sync notifications channel is now disabled")
+				.WithDescription($"Ban sync notifications channel are now disabled")
 				.Build());
 	}
 
-	[SlashCommand("get-settings", "get settings for this guild")]
+	[SlashCommand("unban-notifications", "Sets the channel to post unban notifications to")]
+	public async Task SetUnbanNotificationsChannelAsync([Summary("channel", "Sets the channel to post notifications to. Leave empty to disable"),
+													ChannelTypes(ChannelType.Text, ChannelType.News)] IGuildChannel? channel = null)
+	{
+		await DeferAsync();
+		var settings = await GuildSettingsUtils.GetGuildSettingsAsync(db, Context.Guild.Id);
+
+		settings.UnbanNotificationsChannelId = channel?.Id;
+		await db.SaveChangesAsync();
+
+		if (channel is not null)
+			await FollowupAsync(embed: new EmbedBuilder()
+				.WithColor(0xff00U)
+				.WithDescription($"Unban notifications channel is now set to <#{channel.Id}>")
+				.Build());
+		else
+			await FollowupAsync(embed: new EmbedBuilder()
+				.WithColor(0xff00U)
+				.WithDescription($"Unban notifications are now disabled")
+				.Build());
+	}
+
+    [SlashCommand("get-settings", "get settings for this guild")]
 	public async Task GetGuildSettingsAsync()
 	{
 		await DeferAsync();
@@ -69,7 +92,7 @@ public class CommandModule(ILogger<CommandModule> logger, IDbContextFactory<AppD
 
 	[RequireBotPermission(GuildPermission.BanMembers)]
 	[RequireUserPermission(GuildPermission.BanMembers)]
-	[ComponentInteraction($"sync_ban_*_*")]
+	[ComponentInteraction($"sync_ban_*_*", true)]
 	public async Task SyncBanAsync(ulong id, ulong guildId)
 	{
 		var interaction = (IComponentInteraction)Context.Interaction;
@@ -86,10 +109,6 @@ public class CommandModule(ILogger<CommandModule> logger, IDbContextFactory<AppD
 
 		try
 		{
-			syncState.History.Enqueue((Context.Guild.Id, id));
-			if (syncState.History.Count > 500)
-				syncState.History.TryDequeue(out _);
-
 			await Context.Guild.AddBanAsync(id, 0, reason.Length > 512 ? reason[..512] : reason);
 
 			await FollowupAsync("User banned.", ephemeral: true);
@@ -97,6 +116,39 @@ public class CommandModule(ILogger<CommandModule> logger, IDbContextFactory<AppD
 		catch (Exception ex)
 		{
 			await FollowupAsync("Failed to ban this user.", ephemeral: true);
+			//logger.LogError(ex, "Failed to ban user {Id}", id);
+		}
+	}
+
+	[RequireBotPermission(GuildPermission.BanMembers)]
+	[RequireUserPermission(GuildPermission.BanMembers)]
+	[ComponentInteraction($"sync_unban_*_*", true)]
+	public async Task SyncUnBanAsync(ulong id, ulong guildId)
+	{
+		var interaction = (IComponentInteraction)Context.Interaction;
+		await interaction.UpdateAsync(x => x.Components = null);
+
+		var source = Context.Client.GetGuild(guildId);
+		var reason = $"Synced unban with {source.Name}";
+
+		if (interaction.Message.Embeds.Count is not 0)
+		{
+			var r = interaction.Message.Embeds.First().Fields.First(x => x.Name == "Reason");
+			reason += $" | {r.Value}";
+		}
+
+		try
+		{
+			await Context.Guild.RemoveBanAsync(id, new RequestOptions
+			{
+				AuditLogReason = reason.Length > 512 ? reason[..512] : reason
+            });
+
+			await FollowupAsync("User unbanned.", ephemeral: true);
+		}
+		catch (Exception ex)
+		{
+			await FollowupAsync("Failed to unban this user.", ephemeral: true);
 			//logger.LogError(ex, "Failed to ban user {Id}", id);
 		}
 	}

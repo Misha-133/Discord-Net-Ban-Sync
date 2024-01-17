@@ -8,4 +8,6 @@ public class AppDbContext : DbContext
 	{ }
 
 	public DbSet<GuildSettings> GuildSettings { get; set; }
+
+	public DbSet<BanExemption> BanExemptions { get; set; }
 }

@@ -15,4 +15,7 @@ public class GuildSettings
 	
 	[Column("NotificationsChannelId")]
 	public ulong? NotificationsChannelId { get; set; }
+
+	[Column("UnbanNotificationsChannelId")]
+	public ulong? UnbanNotificationsChannelId { get; set; }
 }
