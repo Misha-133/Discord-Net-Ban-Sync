@@ -57,7 +57,7 @@ public class BanSyncService : BackgroundService
                     continue;
 
                 var settings = await GuildSettingsUtils.GetGuildSettingsAsync(db, g.Id);
-                if (settings.IsBanSyncEnabled || settings.NotificationsChannelId is not null)
+                if (settings.IsBanSyncEnabled || settings.UnbanNotificationsChannelId is not null)
                     _unbanQueue.Enqueue((data.Target.Id, guild.Id, g.Id, entry.Reason));
             }
         });
@@ -77,7 +77,7 @@ public class BanSyncService : BackgroundService
 
         _ = Task.Run(async () =>
         {
-            if (_banSyncState.History.All(x => x.UserId != data.Target.Id && x.SourceGuildId != guild.Id))
+            if (!_banSyncState.History.Any(x => x.UserId == data.Target.Id && x.SourceGuildId == guild.Id))
             {
                 _banSyncState.History.Enqueue((guild.Id, data.Target.Id));
                 if (_banSyncState.History.Count > 500)
@@ -150,6 +150,7 @@ public class BanSyncService : BackgroundService
                 if (await db.BanExemptions.FirstOrDefaultAsync(x => x.UserId == ban.UserId && x.GuildId == ban.TargetGuildId) is null)
                 {
                     var reason = $"Synced ban with {sourceGuild.Name}. | {ban.Reason}";
+                    _logger.LogInformation(reason);
                     await guild.AddBanAsync(ban.UserId, 0, reason.Length > 512 ? reason[..512] : reason);
                 }
             }
