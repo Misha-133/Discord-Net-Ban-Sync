@@ -1,4 +1,5 @@
-﻿using BanSync.Database;
+﻿using System.Security.Cryptography.X509Certificates;
+using BanSync.Database;
 using BanSync.Services;
 using BanSync.Utils;
 using Microsoft.EntityFrameworkCore;
@@ -90,7 +91,60 @@ public class CommandModule(ILogger<CommandModule> logger, IDbContextFactory<AppD
 					.Build());
 	}
 
-	[RequireBotPermission(GuildPermission.BanMembers)]
+
+	[Group("exemption", "exemption commands")]
+	[DefaultMemberPermissions(GuildPermission.Administrator)]
+	public class ExemptionCommands(ILogger<CommandModule> logger, IDbContextFactory<AppDbContext> dbContextFactory, BanSyncState syncState) : InteractionModuleBase<SocketInteractionContext>
+	{
+		private AppDbContext db;
+
+		public override async Task BeforeExecuteAsync(ICommandInfo command)
+		{
+			db = await dbContextFactory.CreateDbContextAsync();
+
+			await base.BeforeExecuteAsync(command);
+		}
+
+		[SlashCommand("add", "Exempt from being banned by ban sync")]
+		public async Task ExemptUserAsync(IUser user)
+		{
+			await DeferAsync(true);
+
+			if (await db.BanExemptions.FirstOrDefaultAsync(x => x.GuildId == Context.Guild.Id && x.UserId == user.Id) is not null)
+			{
+				await FollowupAsync("This user is already exempted");
+				return;
+			}
+
+			await db.BanExemptions.AddAsync(new BanExemption
+			{
+				UserId = user.Id,
+				GuildId = Context.Guild.Id
+			});
+			await db.SaveChangesAsync();
+			await FollowupAsync($"User {user.Mention} is now exempted.");
+		}
+
+		[SlashCommand("remove", "Remove exemption from a user.")]
+		public async Task RemoveExemptionUserAsync(IUser user)
+		{
+			await DeferAsync(true);
+
+			var exemption = await db.BanExemptions.FirstOrDefaultAsync(x => x.GuildId == Context.Guild.Id && x.UserId == user.Id);
+
+            if (exemption is null)
+			{
+				await FollowupAsync("This user is not exempted");
+				return;
+			}
+
+			db.BanExemptions.Remove(exemption);
+			await db.SaveChangesAsync();
+			await FollowupAsync($"User {user.Mention} is not exempted anymore.");
+		}
+    }
+
+    [RequireBotPermission(GuildPermission.BanMembers)]
 	[RequireUserPermission(GuildPermission.BanMembers)]
 	[ComponentInteraction($"sync_ban_*_*", true)]
 	public async Task SyncBanAsync(ulong id, ulong guildId)
